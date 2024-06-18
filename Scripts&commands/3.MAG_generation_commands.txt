@@ -1,0 +1,58 @@
+#MEGAHit assembly
+megahit -1 Combined_1.fastq -2 Combined_2.fastq --k-min 21 --k-max 77 -o output_folder -t 30
+
+#VAMB binning
+snakemake --cores 30 --configfile config.json --snakefile /workflow/vamb.snake.conda.py
+#Config.json (below)
+#{
+#   "contigs": "/VAMB/Run/contigs.txt",
+#   "sample_data": "/VAMB/Run/samples2data.txt",
+#   "index_size": "10G",
+#   "minimap_mem": "30gb",
+#   "minimap_ppn": "50",
+#   "vamb_mem": "32gb",
+#   "vamb_ppn": "50",
+#   "checkm_mem": "30gb",
+#   "checkm_ppn": "50",   
+#   "vamb_params": "-o C -m 2000 --minfasta 500000 --outdir vamb"
+#}
+
+#SemiBin binning
+SemiBin multi_easy_bin -t 25 -i /SimiBin/Contigs/combined_new.fasta -b S01_sorted.bam  bam/*_sorted.bam -o multi_output
+SemiBin generate_cannot_links -t 50 -i /multi_output/samples/contigsS01.fa -o /multi_output/samples/contigsS01
+SemiBin train -t 50 -i /multi_output/samples/contigsS01.fa --data /multi_output/samples/contigsS01/data.csv --data-split /multi_output/samples/contigsS01/data_split.csv -c multi_output/samples/contigsS01/cannot/cannot.txt -o multi_output/samples/contigsS01 --mode single
+SemiBin bin -t 5 -i /multi_output/samples/contigsS01.fa --model /multi_output/samples/contigsS01/model.h5 --data /multi_output/samples/contigsS01/data.csv -o /multi_output/samples/contigsS01
+
+#MetaCoAG
+./MetaCoAG --assembler MEGAHIT --graph /final.gfa --contigs final.contigs.fa --abundance Samples_all_new.tsv --output Output --nthreads 10
+
+#Maxbin2
+run_MaxBin.pl -contig final.contigs.fa -abund Samples_all_new.tsv -out maxbin_output -thread 30
+
+#metabat2
+jgi_summarize_bam_contig_depths --outputDepth depth.txt /CoverM/Bam_all/S*.bam
+metabat2 -i final.contigs.fa -a depth.txt -o bins_dir/bin -t 30
+
+#DAS_Tool
+DAS_Tool -i ~/MAGs/DAStool/All_mix/metabat2.tsv,~/MAGs/DAStool/All_mix/metacoag.tsv,~/MAGs/DAStool/All_mix/maxbin2.tsv -l metabat2,metacoag,maxbin2 -c ~/MAGs/MegaHit/output_folder/final.contigs.fa -o mix -t 30 --search_engine diamond --write_bins 1
+
+#MAGs cleanup
+mdmcleaner clean -i ~/MAGs/DAStool/All_mix/mix_DASTool_bins/*.fa -o ~/MAGs/mdmcleaner/Mix/ -t 10
+
+#Chimeric MAG detection
+gunc run --input_dir ~/MAGs/mdmcleaner/Final_Fasta_sequneces/ --db_file /~/MAGs/GUNC/gunc_db_progenomes2.1.dmnd --threads 15 --file_suffix fasta
+
+#CheckM analysis
+checkm lineage_wf -t 10 -x fasta ~/MAGs/mdmcleaner/Final_Fasta_sequneces/ ~/MAGs/CheckM/Q --tab_table
+
+#Dereplication
+dRep dereplicate -p 20 -g ~/MAGs/GUNC/Passed_genomes/*.fa -comp 50 -con 10 -pa 0.90 -sa 0.95 -nc 0.30 -cm larger --genomeInfo ~MAGs/dRep/Mix.csv work_directory_new
+
+#Taxonomic classification
+gtdbtk classify_wf --genome_dir ~/MAGs/dRep/All_binner/Total_MAGs/ --out_dir ~/MAGs/GTDB/Full_MAGs/ --cpus 20 -x fasta --pplacer_cpus 1
+
+#Phylogenetic analysis
+gtdbtk infer --msa_file ~/MAGs/GTDB/Full_MAGs/gtdbtk.bac120.user_msa.fasta --out_dir infer_out --cpus 10
+
+#Novel MAG detection
+dRep compare -p 20 -g ~/MAGs/dRep/All_binner/species_renamed/*.fasta -pa 0.90 -sa 0.95 -nc 0.30 -cm larger Output_compare
