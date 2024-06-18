@@ -1,5 +1,5 @@
 # Gut microbiota influence on animal domestication 
-This repository contains all the data and necessary scripts used in the research for the manuscript titled "Enhanced Tameness by _Limosilactobacillus reuteri_ from Gut Microbiota of Selectively Bred Mice".
+This repository contains all the commands and necessary scripts used in the research for the manuscript titled "Enhanced Tameness by _Limosilactobacillus reuteri_ from Gut Microbiota of Selectively Bred Mice".
 
 ## Manuscript
 You can read our manuscript at the following link:
