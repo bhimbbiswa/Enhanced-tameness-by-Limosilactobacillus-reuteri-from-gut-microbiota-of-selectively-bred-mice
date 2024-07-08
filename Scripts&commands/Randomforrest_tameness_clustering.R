@@ -41,7 +41,7 @@ class(OTU_meta)
 
 
 #Import tameness data
-Tameness_data = read.table(file = "H:Normalized_tameness_test.txt", header = TRUE, sep = "\t",
+Tameness_data = read.table(file = "H:/Normalized_tameness_test.txt", header = TRUE, sep = "\t",
                            row.names = 1,
                            stringsAsFactors = FALSE)
 Tameness_data[1:5, 1:5]
